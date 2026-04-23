@@ -1,5 +1,5 @@
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
-import { Home, Compass, FileText, Search, User, Info, Crosshair, Download } from 'lucide-react';
+import { Home, Compass, FileText, Search, User, Info, Crosshair, Download, Sun, Moon } from 'lucide-react';
 import HomePage from './pages/Home';
 import TesterPage from './pages/Tester';
 import ComplaintPage from './pages/Complaint';
@@ -50,22 +50,30 @@ const SmartLogo = ({ src }) => {
 function App() {
   const location = useLocation();
   const [showContact, setShowContact] = useState(false);
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'dark');
+
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   return (
     <>
       <header style={{
-        background: 'rgba(15, 23, 42, 0.8)',
+        background: 'var(--bg-panel)',
         backdropFilter: 'blur(12px)',
         borderBottom: '1px solid var(--border-subtle)',
         position: 'sticky',
         top: 0,
         zIndex: 50,
-        padding: '1rem 0'
+        padding: '1rem 0',
+        transition: 'background-color 0.3s ease'
       }}>
         <div className="container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Link to="/" style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', textDecoration: 'none' }}>
             <SmartLogo src="/logo.png" />
-            <h2 className="text-gradient" style={{ margin: 0, fontSize: '1.5rem', letterSpacing: '0.5px', fontWeight: 700 }}>OXYMORA</h2>
           </Link>
           
           <nav style={{ display: 'flex', gap: '1.5rem', alignItems: 'center' }}>
@@ -86,7 +94,7 @@ function App() {
                     gap: '0.5rem', 
                     textDecoration: 'none',
                     color: isActive ? 'var(--primary)' : 'var(--text-muted)',
-                    fontWeight: isActive ? 600 : 500,
+                    fontWeight: isActive ? 700 : 600,
                     transition: 'color 0.2s',
                     fontSize: '0.9rem'
                   }}
@@ -107,7 +115,7 @@ function App() {
                 alignItems: 'center',
                 gap: '0.5rem',
                 color: 'var(--text-muted)',
-                fontWeight: 500,
+                fontWeight: 600,
                 textDecoration: 'none',
                 fontSize: '0.9rem',
                 transition: 'color 0.2s'
@@ -128,7 +136,7 @@ function App() {
                 alignItems: 'center',
                 gap: '0.5rem',
                 color: 'var(--text-muted)',
-                fontWeight: 500,
+                fontWeight: 600,
                 cursor: 'pointer',
                 fontSize: '0.9rem',
                 transition: 'color 0.2s'
@@ -138,6 +146,29 @@ function App() {
             >
               <Info size={18} />
               Contact
+            </button>
+
+            <div style={{ width: '1px', height: '24px', background: 'var(--border-strong)', margin: '0 0.5rem' }}></div>
+
+            <button 
+              onClick={toggleTheme}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'var(--text-muted)',
+                cursor: 'pointer',
+                padding: '0.4rem',
+                borderRadius: '50%',
+                transition: 'color 0.2s, background-color 0.2s',
+              }}
+              onMouseOver={(e) => { e.currentTarget.style.color = 'var(--text-light)'; e.currentTarget.style.backgroundColor = 'var(--border-subtle)'; }}
+              onMouseOut={(e) => { e.currentTarget.style.color = 'var(--text-muted)'; e.currentTarget.style.backgroundColor = 'transparent'; }}
+              title={`Switch to ${theme === 'dark' ? 'Light' : 'Dark'} Mode`}
+            >
+              {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
             </button>
           </nav>
         </div>
@@ -176,7 +207,7 @@ function App() {
               <h3 style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', margin: 0 }}><User size={20} color="var(--primary)"/> Contact Information</h3>
               <button 
                 onClick={() => setShowContact(false)}
-                style={{ background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
+                style={{ background: 'transparent', border: 'none', color: 'var(--text-light)', cursor: 'pointer', fontSize: '1.5rem', lineHeight: 1 }}
               >&times;</button>
             </div>
             <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Terminal, ShieldAlert, CheckCircle2, AlertCircle, Loader2, Navigation, Activity, Cpu, Info, Usb, Plug2, List, PlayCircle } from 'lucide-react';
+import { Terminal, ShieldAlert, CheckCircle2, AlertCircle, Loader2, Navigation, Activity, Cpu, Info, Usb, Plug2, List, PlayCircle, Plug } from 'lucide-react';
 
 const TOTAL_TEST_TIME = 10 * 60 * 1000;
 const ANTENNA_SUGGESTION_TIME = 3 * 60 * 1000;
@@ -220,7 +220,7 @@ const TesterPage = () => {
         const text = new TextDecoder().decode(new Uint8Array(bytes));
         
         if (currentCommandRef.current === 'sbi_issue') {
-            if (text.includes("ID0BMD") || text.includes("Success") || text.length > 10) {
+            if (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success")) {
                 setSbiIssueStatus('Success');
                 currentCommandRef.current = 'get_device_info';
                 sendCommand('get_device_info');
@@ -236,11 +236,12 @@ const TesterPage = () => {
                 handleLocation(data);
             }
         } catch (e) {
-            if (!text.trim().startsWith('{')) {
-                console.log("Ignored non-json string:", text);
+            if (bank === 'sbi' && !text.trim().startsWith('{')) {
+                console.log("Ignored non-json string for SBI trailing chunk:", text);
                 return;
             }
             setError(`Invalid Response: ${text}`);
+            stopProgressTracking();
         }
         setStatus('Connected');
     };
@@ -257,6 +258,17 @@ const TesterPage = () => {
                 firmware_version: response.data.firmware_version || 'unknown',
                 device_status: response.data.device_status || 'unknown'
             });
+
+            if (bank === 'sbi') {
+                setProgress(100);
+                stopProgressTracking();
+                sendToAPI('test_completed', {
+                    serial_number: serialNumRef.current,
+                    status: 'success_sbi',
+                    message: 'SBI Testing done correctly (skipping GPS)'
+                });
+                return;
+            }
 
             currentCommandRef.current = 'get_location';
             sendCommand('get_location');
@@ -340,8 +352,12 @@ const TesterPage = () => {
                 
                 {/* Control Panel */}
                 <div className="glass-card" style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
-                    <button className="btn btn-primary" onClick={handleConnect} disabled={isConnected}>
-                        <Terminal size={18} /> Connect Device
+                    <button 
+                        className="btn btn-connect" 
+                        onClick={handleConnect} 
+                        disabled={isConnected}
+                    >
+                        <Plug size={18} style={{ marginRight: '0.2rem' }} /> CONNECT DEVICE
                     </button>
                     <button className="btn btn-danger" onClick={handleDisconnect} disabled={!isConnected}>
                         Disconnect
@@ -357,7 +373,7 @@ const TesterPage = () => {
                 </div>
 
                 {/* Progress / Status Area */}
-                {(progress > 0 && !locationInfo && !error) && (
+                {(bank !== 'sbi' && progress > 0 && progress < 100 && !locationInfo && !error) && (
                     <div className="glass-card" style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', alignItems: 'center', justifyContent: 'center' }}>
                         <div className="radar-dot" style={{ transform: 'scale(1.5)', margin: '1rem' }}></div>
                         <div style={{ width: '100%', background: 'var(--bg-dark)', height: '6px', borderRadius: '4px', overflow: 'hidden' }}>
@@ -402,6 +418,8 @@ const TesterPage = () => {
                         </div>
                     </div>
                 )}
+
+
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: '1.5rem' }}>
                     {deviceInfo && (
