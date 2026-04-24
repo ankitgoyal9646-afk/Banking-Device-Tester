@@ -130,6 +130,9 @@ const TesterPage = () => {
             setDeviceInfo(null);
             setLocationInfo(null);
             setSbiIssueStatus(null);
+            setNetworkStatus(null);
+            networkStatusRef.current = null;
+            setDebugText("");
             setProgress(0);
             currentCommandRef.current = null;
             
@@ -141,7 +144,12 @@ const TesterPage = () => {
 
     const handleDisconnect = async () => {
         await cleanup();
+        setDeviceInfo(null);
+        setLocationInfo(null);
         setSbiIssueStatus(null);
+        setNetworkStatus(null);
+        networkStatusRef.current = null;
+        setDebugText("");
         setStatus('Disconnected');
     };
 
