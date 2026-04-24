@@ -36,6 +36,7 @@ const TesterPage = () => {
     const currentCommandRef = useRef(null);
     const locationIntervalRef = useRef(null);
     const progressIntervalRef = useRef(null);
+    const sbiTimeoutRef = useRef(null);
     const bufferRef = useRef([]);
 
     useEffect(() => {
@@ -56,6 +57,10 @@ const TesterPage = () => {
     const cleanup = async () => {
         stopLocationChecking();
         stopProgressTracking();
+        if (sbiTimeoutRef.current) {
+            clearTimeout(sbiTimeoutRef.current);
+            sbiTimeoutRef.current = null;
+        }
         try {
             if (readerRef.current) {
                 await readerRef.current.cancel();
@@ -155,6 +160,17 @@ const TesterPage = () => {
         }
     };
 
+    const pollSbiDevice = async () => {
+        if (currentCommandRef.current !== 'sbi_issue') return;
+        await sendRawCommand(SBI_MAGIC_STRING);
+        
+        sbiTimeoutRef.current = setTimeout(() => {
+            if (currentCommandRef.current === 'sbi_issue') {
+                pollSbiDevice();
+            }
+        }, 3000);
+    };
+
     const handleRunTest = async () => {
         if (!termsAccepted) return;
         setDeviceInfo(null);
@@ -171,7 +187,7 @@ const TesterPage = () => {
         if (bank === 'sbi') {
             currentCommandRef.current = 'sbi_issue';
             setSbiIssueStatus('Pending');
-            await sendRawCommand(SBI_MAGIC_STRING);
+            pollSbiDevice();
         } else {
             currentCommandRef.current = 'get_device_info';
             await sendCommand('get_device_info');
@@ -218,9 +234,14 @@ const TesterPage = () => {
         
         if (currentCommandRef.current === 'sbi_issue') {
             if (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success")) {
-                setSbiIssueStatus('Success');
-                currentCommandRef.current = 'get_device_info';
-                sendCommand('get_device_info');
+                // Dynamic Byte-Length Heuristic for Network Detection
+                // An offline response is a short string echo. A network-active response includes a large NMEA/GPS payload.
+                if (text.length > 35 || text.includes("Success")) {
+                    if (sbiTimeoutRef.current) clearTimeout(sbiTimeoutRef.current);
+                    setSbiIssueStatus('Success');
+                    currentCommandRef.current = 'get_device_info';
+                    sendCommand('get_device_info');
+                }
                 return;
             }
         }
