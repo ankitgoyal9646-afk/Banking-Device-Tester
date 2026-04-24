@@ -294,10 +294,11 @@ const TesterPage = () => {
                 console.log("Ignored non-json string for SBI trailing chunk:", text);
                 
                 // Background Poller Listener!
-                if (networkStatusRef.current === 'Checking' && (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success"))) {
-                     if (text.length > 300) {
+                if (networkStatusRef.current === 'Checking') {
+                     setDebugText(`Last: ${text.length}b | ${text.substring(0, 30)}...`);
+                     
+                     if ((text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success")) && text.length > 300) {
                          setNetworkStatus('Detected');
-                         setDebugText(text);
                          networkStatusRef.current = 'Detected';
                          if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
                      }
@@ -505,7 +506,10 @@ const TesterPage = () => {
                     <div className="glass-card" style={{ animation: 'fadeIn 0.3s', borderLeft: '4px solid var(--primary)', marginBottom: '0.5rem' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
                             <Loader2 className="animate-spin" size={20} color="var(--primary)" />
-                            <span style={{ color: 'var(--text-light)', fontWeight: 600 }}>Background Task: Continuously Polling for Network Lock...</span>
+                            <div>
+                                <span style={{ color: 'var(--text-light)', fontWeight: 600, display: 'block' }}>Background Task: Continuously Polling for Network Lock...</span>
+                                {debugText && <span style={{ color: '#ef4444', fontSize: '0.75rem', display: 'block', marginTop: '4px' }}>[DEBUG STREAM]: {debugText}</span>}
+                            </div>
                         </div>
                     </div>
                 )}
