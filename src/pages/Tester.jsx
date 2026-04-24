@@ -227,8 +227,11 @@ const TesterPage = () => {
                     const msgBytes = newBuffer.slice(0, newlineIndex);
                     bufferRef.current = newBuffer.slice(newlineIndex + 1);
                     processMessage(msgBytes);
-                } else if (currentCommandRef.current === 'sbi_issue' && newBuffer.length > 20) {
+                } else if (currentCommandRef.current === 'sbi_issue' && newBuffer.length > 20 && networkStatusRef.current !== 'Checking') {
                     bufferRef.current = [];
+                    processMessage(newBuffer);
+                } else if (newBuffer.length > 1000) {
+                    bufferRef.current = []; // Prevent infinite memory accumulation loop if missing newlines
                     processMessage(newBuffer);
                 } else {
                     bufferRef.current = newBuffer;
@@ -297,6 +300,13 @@ const TesterPage = () => {
                 // Background Poller Listener!
                 if (networkStatusRef.current === 'Checking') {
                      setDebugText(`Last: ${text.length}b | ${text.substring(0, 30)}...`);
+                     
+                     // Detect Network Lock!
+                     if (text.includes("$GP") || text.includes("$GN") || text.includes("Lat:") || text.includes("Lng:") || text.length > 200) {
+                         setNetworkStatus('Detected');
+                         networkStatusRef.current = 'Detected';
+                         if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
+                     }
                 }
                 return;
             }
