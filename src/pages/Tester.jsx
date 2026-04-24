@@ -23,6 +23,7 @@ const TesterPage = () => {
     const [locationInfo, setLocationInfo] = useState(null);
     const [error, setError] = useState(null);
     const [sbiIssueStatus, setSbiIssueStatus] = useState(null);
+    const [networkStatus, setNetworkStatus] = useState(null);
     
     const [progress, setProgress] = useState(0);
     const [showTimeAlert, setShowTimeAlert] = useState(false);
@@ -37,6 +38,8 @@ const TesterPage = () => {
     const locationIntervalRef = useRef(null);
     const progressIntervalRef = useRef(null);
     const sbiTimeoutRef = useRef(null);
+    const networkTimeoutRef = useRef(null);
+    const networkStatusRef = useRef(null);
     const bufferRef = useRef([]);
 
     useEffect(() => {
@@ -60,6 +63,10 @@ const TesterPage = () => {
         if (sbiTimeoutRef.current) {
             clearTimeout(sbiTimeoutRef.current);
             sbiTimeoutRef.current = null;
+        }
+        if (networkTimeoutRef.current) {
+            clearTimeout(networkTimeoutRef.current);
+            networkTimeoutRef.current = null;
         }
         try {
             if (readerRef.current) {
@@ -160,13 +167,13 @@ const TesterPage = () => {
         }
     };
 
-    const pollSbiDevice = async () => {
-        if (currentCommandRef.current !== 'sbi_issue') return;
+    const pollNetworkContinuously = async () => {
+        if (!portRef.current) return;
         await sendRawCommand(SBI_MAGIC_STRING);
         
-        sbiTimeoutRef.current = setTimeout(() => {
-            if (currentCommandRef.current === 'sbi_issue') {
-                pollSbiDevice();
+        networkTimeoutRef.current = setTimeout(() => {
+            if (networkStatusRef.current !== 'Detected') {
+                pollNetworkContinuously();
             }
         }, 3000);
     };
@@ -177,6 +184,8 @@ const TesterPage = () => {
         setLocationInfo(null);
         setError(null);
         setSbiIssueStatus(null);
+        setNetworkStatus(null);
+        networkStatusRef.current = null;
         setShowTimeAlert(false);
         setProgress(0);
         
@@ -187,7 +196,7 @@ const TesterPage = () => {
         if (bank === 'sbi') {
             currentCommandRef.current = 'sbi_issue';
             setSbiIssueStatus('Pending');
-            pollSbiDevice();
+            await sendRawCommand(SBI_MAGIC_STRING);
         } else {
             currentCommandRef.current = 'get_device_info';
             await sendCommand('get_device_info');
@@ -234,13 +243,21 @@ const TesterPage = () => {
         
         if (currentCommandRef.current === 'sbi_issue') {
             if (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success")) {
-                // Dynamic Byte-Length Heuristic for Network Detection
-                // An offline response is a short string echo. A network-active response includes a large NMEA/GPS payload.
-                if (text.length > 35 || text.includes("Success")) {
-                    if (sbiTimeoutRef.current) clearTimeout(sbiTimeoutRef.current);
+                if (sbiIssueStatus !== 'Success') {
                     setSbiIssueStatus('Success');
                     currentCommandRef.current = 'get_device_info';
                     sendCommand('get_device_info');
+                    
+                    // Start Background Network Poller
+                    setNetworkStatus('Checking');
+                    networkStatusRef.current = 'Checking';
+                    pollNetworkContinuously();
+                } else if (networkStatusRef.current === 'Checking') {
+                    if (text.length > 35 || text.includes("Success")) {
+                        setNetworkStatus('Detected');
+                        networkStatusRef.current = 'Detected';
+                        if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
+                    }
                 }
                 return;
             }
@@ -266,6 +283,15 @@ const TesterPage = () => {
         } catch (e) {
             if (bank === 'sbi' && !text.trim().startsWith('{')) {
                 console.log("Ignored non-json string for SBI trailing chunk:", text);
+                
+                // Background Poller Listener!
+                if (networkStatusRef.current === 'Checking' && (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success"))) {
+                     if (text.length > 35 || text.includes("Success")) {
+                         setNetworkStatus('Detected');
+                         networkStatusRef.current = 'Detected';
+                         if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
+                     }
+                }
                 return;
             }
             setError(`Invalid Response: ${text}`);
@@ -460,6 +486,27 @@ const TesterPage = () => {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ color: 'var(--text-light)', width: '150px', fontWeight: 600, fontSize: '0.95rem' }}>Status:</span><span style={{ color: 'var(--text-muted)' }}>Success</span></div>
                             <div style={{ display: 'flex', alignItems: 'center' }}><span style={{ color: 'var(--text-light)', width: '150px', fontWeight: 600, fontSize: '0.95rem' }}>Result:</span><span style={{ color: 'var(--text-muted)' }}>Command executed successfully</span></div>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Background Network Polling UI */}
+                {networkStatus === 'Checking' && (
+                    <div className="glass-card" style={{ animation: 'fadeIn 0.3s', borderLeft: '4px solid var(--primary)', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <Loader2 className="animate-spin" size={20} color="var(--primary)" />
+                            <span style={{ color: 'var(--text-light)', fontWeight: 600 }}>Background Task: Continuously Polling for Network Lock...</span>
+                        </div>
+                    </div>
+                )}
+                {networkStatus === 'Detected' && (
+                    <div className="glass-card" style={{ animation: 'fadeIn 0.5s', borderLeft: '4px solid var(--success)', background: 'rgba(16, 185, 129, 0.05)', marginBottom: '0.5rem' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                            <CheckCircle2 size={24} color="var(--success)" />
+                            <div>
+                                <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '1.05rem', display: 'block' }}>GPS Network Lock Detected!</span>
+                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Background verification confirmed hardware network response.</span>
+                            </div>
                         </div>
                     </div>
                 )}
