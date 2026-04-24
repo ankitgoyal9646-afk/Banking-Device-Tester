@@ -176,17 +176,7 @@ const TesterPage = () => {
         }
     };
 
-    const pollNetworkContinuously = async () => {
-        if (!portRef.current) return;
-        
-        networkTimeoutRef.current = setTimeout(async () => {
-            if (networkStatusRef.current === 'Checking') {
-                currentCommandRef.current = 'sbi_issue'; // Revert to accepting non-json catch logic
-                await sendRawCommand(SBI_MAGIC_STRING);
-                pollNetworkContinuously();
-            }
-        }, 3000);
-    };
+    // Network polling is completely incompatible with SBI firmware. Only applicable for json/NMEA compliant architectures.
 
     const handleRunTest = async () => {
         if (!termsAccepted) return;
@@ -258,13 +248,7 @@ const TesterPage = () => {
             if (text.includes("ID0B") || text.includes("BMDQ") || text.includes("Success")) {
                 if (sbiIssueStatus !== 'Success') {
                     setSbiIssueStatus('Success');
-                    currentCommandRef.current = 'get_device_info';
-                    sendCommand('get_device_info');
-                    
-                    // Start Background Network Poller
-                    setNetworkStatus('Checking');
-                    networkStatusRef.current = 'Checking';
-                    pollNetworkContinuously();
+                    // SBI device purely acts as an encrypted dongle; no further commands/polling supported.
                 } else if (networkStatusRef.current === 'Checking') {
                     if (text.length > 35 || text.includes("Success")) {
                         setNetworkStatus('Detected');
@@ -297,17 +281,7 @@ const TesterPage = () => {
             if (bank === 'sbi' && !text.trim().startsWith('{')) {
                 console.log("Ignored non-json string for SBI trailing chunk:", text);
                 
-                // Background Poller Listener!
-                if (networkStatusRef.current === 'Checking') {
-                     setDebugText(`Last: ${text.length}b | ${text.substring(0, 30)}...`);
-                     
-                     // Detect Network Lock!
-                     if (text.includes("$GP") || text.includes("$GN") || text.includes("Lat:") || text.includes("Lng:") || text.length > 200) {
-                         setNetworkStatus('Detected');
-                         networkStatusRef.current = 'Detected';
-                         if (networkTimeoutRef.current) clearTimeout(networkTimeoutRef.current);
-                     }
-                }
+                // Background Poller block removed due to hardware incompatibility.
                 return;
             }
             setError(`Invalid Response: ${text}`);
@@ -514,30 +488,7 @@ const TesterPage = () => {
                     </div>
                 )}
                 
-                {/* Background Network Polling UI */}
-                {networkStatus === 'Checking' && (
-                    <div className="glass-card" style={{ animation: 'fadeIn 0.3s', borderLeft: '4px solid var(--primary)', marginBottom: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <Loader2 className="animate-spin" size={20} color="var(--primary)" />
-                            <div>
-                                <span style={{ color: 'var(--text-light)', fontWeight: 600, display: 'block' }}>Background Task: Continuously Polling for Network Lock...</span>
-                                {debugText && <span style={{ color: '#ef4444', fontSize: '0.75rem', display: 'block', marginTop: '4px' }}>[DEBUG STREAM]: {debugText}</span>}
-                            </div>
-                        </div>
-                    </div>
-                )}
-                {networkStatus === 'Detected' && (
-                    <div className="glass-card" style={{ animation: 'fadeIn 0.5s', borderLeft: '4px solid var(--success)', background: 'rgba(16, 185, 129, 0.05)', marginBottom: '0.5rem' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                            <CheckCircle2 size={24} color="var(--success)" />
-                            <div>
-                                <span style={{ color: 'var(--success)', fontWeight: 700, fontSize: '1.05rem', display: 'block' }}>GPS Network Lock Detected!</span>
-                                <span style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Background verification confirmed hardware network response.</span>
-                                {debugText && <span style={{ color: '#ef4444', fontSize: '0.75rem', display: 'block', marginTop: '4px', wordBreak: 'break-all' }}>[DEBUG]: Length: {debugText.length} | Text: {debugText}</span>}
-                            </div>
-                        </div>
-                    </div>
-                )}
+
 
 
 
