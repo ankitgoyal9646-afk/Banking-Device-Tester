@@ -169,10 +169,10 @@ const TesterPage = () => {
 
     const pollNetworkContinuously = async () => {
         if (!portRef.current) return;
-        await sendRawCommand(SBI_MAGIC_STRING);
         
-        networkTimeoutRef.current = setTimeout(() => {
-            if (networkStatusRef.current !== 'Detected') {
+        networkTimeoutRef.current = setTimeout(async () => {
+            if (networkStatusRef.current === 'Checking') {
+                await sendRawCommand(SBI_MAGIC_STRING);
                 pollNetworkContinuously();
             }
         }, 3000);
